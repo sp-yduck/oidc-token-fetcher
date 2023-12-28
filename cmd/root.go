@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
 	"golang.org/x/oauth2"
 )
@@ -67,14 +68,11 @@ var rootCmd = &cobra.Command{
 		}
 
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			setCallbackCookie(w, r, "state", state)
-			setCallbackCookie(w, r, "nonce", nonce)
 			http.Redirect(w, r, config.AuthCodeURL(state, oidc.Nonce(nonce)), http.StatusFound)
 		})
-
-		// if err := browser.OpenURL(config.AuthCodeURL(state, oidc.Nonce(nonce))); err != nil {
-		// 	return err
-		// }
+		if err := browser.OpenURL(config.AuthCodeURL(state, oidc.Nonce(nonce))); err != nil {
+			log.Printf("cannot open browser, please open %s manually: %v", config.AuthCodeURL(state, oidc.Nonce(nonce)), err)
+		}
 
 		http.HandleFunc(redirectPath, func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Query().Get("state") != state {
@@ -146,17 +144,6 @@ func randString(nByte int) (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-func setCallbackCookie(w http.ResponseWriter, r *http.Request, name, value string) {
-	c := &http.Cookie{
-		Name:     name,
-		Value:    value,
-		MaxAge:   int(time.Hour.Seconds()),
-		Secure:   r.TLS != nil,
-		HttpOnly: true,
-	}
-	http.SetCookie(w, c)
 }
 
 func Execute() {
